@@ -56,11 +56,14 @@ namespace KonsoleBrowse
             application.CheckApplicationInstanceCertificate(false, 2048).GetAwaiter().GetResult();
 
             //var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://" + Dns.GetHostName() + ":48010", useSecurity: true, operationTimeout: 15000);
-            var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://172.16.10.64:4845", useSecurity: false, operationTimeout: 15000);
+            var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://W10PDvVM:48010", useSecurity: false, operationTimeout: 15000);
 
             Console.WriteLine($"Step 2 - Create a session with your server: {selectedEndpoint.EndpointUrl} ");
             using (var session = Session.Create(config, new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(config)), false, "", 60000, null, null).GetAwaiter().GetResult())
             {
+                Console.WriteLine("Trying QueryFirst Call...");
+                QueryFirstCall(session);
+
                 Console.WriteLine("Start Fetch...");
                 DateTime start = DateTime.Now;
                 BrowseRootTree(session);
@@ -91,10 +94,11 @@ namespace KonsoleBrowse
         private static void BrowseTree(Session session, ReferenceDescription reff, string sPre)
         {
             ReferenceDescriptionCollection nextRefs;
-            byte[] nextCp;
+            byte[] nextCp;       
+
             session.Browse(null, null, ExpandedNodeId.ToNodeId(reff.NodeId, session.NamespaceUris), 0u, BrowseDirection.Forward, ReferenceTypeIds.HierarchicalReferences, true, (uint)NodeClass.Variable | (uint)NodeClass.Object | (uint)NodeClass.Method, out nextCp, out nextRefs);
             if (nextRefs != null)
-            { 
+            {
                 foreach (var nextRd in nextRefs)
                 {
                     //BrowseTree(session, nextRd, sPre += "-");
@@ -104,6 +108,45 @@ namespace KonsoleBrowse
                 }
             }
         }
+
+        private static void QueryFirstCall(Session session)
+        {
+
+            ViewDescription vd = new ViewDescription();
+            vd.ViewId = 5000;
+            vd.ViewVersion = 0;
+            NodeTypeDescriptionCollection nt = new NodeTypeDescriptionCollection();
+            NodeTypeDescription ntd = new NodeTypeDescription();
+
+            ExpandedNodeId enid = new ExpandedNodeId("ns=3;s=AirConditioner_1");
+
+            ntd.TypeDefinitionNode = enid;
+            nt.Add(ntd);
+
+            ContentFilterElement cfe = new ContentFilterElement();
+            ContentFilterElementCollection cfec = new ContentFilterElementCollection();
+
+
+            cfec.Add(cfe);
+            ContentFilter cf = new ContentFilter();
+            cf.Elements = cfec;
+
+            QueryDataSetCollection qdsc = new QueryDataSetCollection();
+            byte[] cp = new byte[100];
+            ParsingResultCollection prc = new ParsingResultCollection();
+            DiagnosticInfoCollection dic = new DiagnosticInfoCollection();
+            ContentFilterResult cfr = new ContentFilterResult();
+
+            try
+            {
+                var rs = session.QueryFirst(null, vd, nt, cf, 1000, 1000, out qdsc, out cp, out prc, out dic, out cfr);
+            }
+            catch(Exception eX)
+            {
+                Console.WriteLine("EXCEPTION:  QueryFirst  :  {0}", eX.Message);
+            }
+        }
+
         private static void BrowseRootTree(Session session)
         {
             Console.WriteLine("Browse the server namespace.");
