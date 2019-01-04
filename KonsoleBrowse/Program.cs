@@ -57,7 +57,7 @@ namespace KonsoleBrowse
             application.CheckApplicationInstanceCertificate(false, 2048).GetAwaiter().GetResult();
 
             //var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://" + Dns.GetHostName() + ":48010", useSecurity: true, operationTimeout: 15000);
-            var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://DESKTOP-35D3VE0:48010", useSecurity: false, operationTimeout: 15000);
+            var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://LocalHost:4845", useSecurity: false, operationTimeout: 15000);
 
             Console.WriteLine($"Step 2 - Create a session with your server: {selectedEndpoint.EndpointUrl} ");
             using (var session = Session.Create(config, new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(config)), false, "", 60000, null, null).GetAwaiter().GetResult())
@@ -70,7 +70,7 @@ namespace KonsoleBrowse
                 BrowseRootTree(session);
                 DateTime end = DateTime.Now;
                 TimeSpan ts = end - start;
-                Console.WriteLine("Total Get Time: {0}:{1}", ts.TotalMinutes, ts.TotalSeconds);
+                Console.WriteLine("Total Get Time: Seconds: {1}", ts.TotalMinutes, ts.TotalSeconds);
 
 
                 Console.WriteLine("Step 4 - Create a subscription. Set a faster publishing interval if you wish.");
@@ -106,7 +106,11 @@ namespace KonsoleBrowse
                     if(lineCount % 50 == 0)
                         Console.WriteLine("Node Sample Count: {4} - {3} {0}: {1}, {2}", nextRd.DisplayName, nextRd.BrowseName, nextRd.NodeClass, sPre, lineCount);
                     lineCount++;
-                    BrowseTree(session, nextRd, sPre = "-->");
+
+                    if (nextRd.NodeClass == NodeClass.Variable || nextRd.NodeClass == NodeClass.Object)
+                    {
+                        BrowseTree(session, nextRd, sPre += "-");
+                    }
                 }
             }
         }
