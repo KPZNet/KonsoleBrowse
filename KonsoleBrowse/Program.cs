@@ -19,6 +19,9 @@ namespace KonsoleBrowse
     {
         static int lineCount = 0;
         static int totalNodes = 0;
+        static int netCalls = 0;
+        static DateTime startTime;
+
         static void Main(string[] args)
         {
             
@@ -57,24 +60,26 @@ namespace KonsoleBrowse
             application.CheckApplicationInstanceCertificate(false, 2048).GetAwaiter().GetResult();
 
             //var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://" + Dns.GetHostName() + ":48010", useSecurity: true, operationTimeout: 15000);
-            var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://LocalHost:4845", useSecurity: false, operationTimeout: 15000);
+            var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://172.16.10.62:4846", useSecurity: false, operationTimeout: 15000);
 
             Console.WriteLine($"Step 2 - Create a session with your server: {selectedEndpoint.EndpointUrl} ");
             using (var session = Session.Create(config, new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(config)), false, "", 60000, null, null).GetAwaiter().GetResult())
             {
                 Console.WriteLine("Trying QueryFirst Call...");
-                QueryFirstCall(session);
+                //QueryFirstCall(session);
 
                 Console.WriteLine("Start Fetch...");
-                DateTime start = DateTime.Now;
+                startTime = DateTime.Now;
                 BrowseRootTree(session);
                 DateTime end = DateTime.Now;
-                TimeSpan ts = end - start;
+                TimeSpan ts = end - startTime;
+
+                Console.WriteLine("Total Net Calls: {0}", netCalls);
                 Console.WriteLine("Total Get Time: Seconds: {1}", ts.TotalMinutes, ts.TotalSeconds);
 
 
                 Console.WriteLine("Step 4 - Create a subscription. Set a faster publishing interval if you wish.");
-                var subscription = new Subscription(session.DefaultSubscription) { PublishingInterval = 10000 };
+                var subscription = new Subscription(session.DefaultSubscription) { PublishingInterval = 30000 };
 
                 Console.WriteLine("Step 5 - Add a list of items you wish to monitor to the subscription.");
                 var list = new List<MonitoredItem> { new MonitoredItem(subscription.DefaultItem) { DisplayName = "ServerStatusCurrentTime", StartNodeId = "i=2258" } };
@@ -95,16 +100,24 @@ namespace KonsoleBrowse
         private static void BrowseTree(Session session, ReferenceDescription reff, string sPre)
         {
             ReferenceDescriptionCollection nextRefs;
-            byte[] nextCp;       
-
+            byte[] nextCp;
+            netCalls++;
             session.Browse(null, null, ExpandedNodeId.ToNodeId(reff.NodeId, session.NamespaceUris), 0u, BrowseDirection.Forward, ReferenceTypeIds.HierarchicalReferences, true, (uint)NodeClass.Variable | (uint)NodeClass.Object | (uint)NodeClass.Method, out nextCp, out nextRefs);
             if (nextRefs != null)
             {
                 foreach (var nextRd in nextRefs)
                 {
                     //BrowseTree(session, nextRd, sPre += "-");
-                    if(lineCount % 50 == 0)
-                        Console.WriteLine("Node Sample Count: {4} - {3} {0}: {1}, {2}", nextRd.DisplayName, nextRd.BrowseName, nextRd.NodeClass, sPre, lineCount);
+                    if (lineCount % 500 == 0)
+                    {
+                        DateTime end = DateTime.Now;
+                        TimeSpan ts = end - startTime;
+
+                        //Console.WriteLine("Total Net Calls: {0}", netCalls);
+                        Console.WriteLine("Total Get Time: Seconds: {1}", ts.TotalMinutes, ts.TotalSeconds);
+                        Console.WriteLine("Node Sample Count: {4} : {1}", nextRd.DisplayName, nextRd.BrowseName, nextRd.NodeClass, sPre, lineCount);
+                        Console.WriteLine("");
+                    }
                     lineCount++;
 
                     if (nextRd.NodeClass == NodeClass.Variable || nextRd.NodeClass == NodeClass.Object)
@@ -158,6 +171,7 @@ namespace KonsoleBrowse
             Console.WriteLine("Browse the server namespace.");
             ReferenceDescriptionCollection refs;
             Byte[] cp;
+            netCalls++;
             session.Browse(null, null, ObjectIds.ObjectsFolder, 0u, BrowseDirection.Forward, ReferenceTypeIds.HierarchicalReferences, true, (uint)NodeClass.Variable | (uint)NodeClass.Object | (uint)NodeClass.Method, out cp, out refs);
             Console.WriteLine("DisplayName: BrowseName, NodeClass");
             foreach (var rd in refs)
@@ -171,7 +185,7 @@ namespace KonsoleBrowse
         {
             foreach (var value in item.DequeueValues())
             {
-                Console.WriteLine("{0}: {1}, {2}, {3}", item.DisplayName, value.Value, value.SourceTimestamp, value.StatusCode);
+                //Console.WriteLine("{0}: {1}, {2}, {3}", item.DisplayName, value.Value, value.SourceTimestamp, value.StatusCode);
             }
         }
 
