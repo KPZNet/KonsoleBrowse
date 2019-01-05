@@ -17,10 +17,16 @@ namespace KonsoleBrowse
 
     class Program
     {
+        //private const string DiscoveryUrl = "opc.tcp://172.16.10.62:4846";
+        private const string DiscoveryUrl = "opc.tcp://DESKTOP-35D3VE0:48010";
+        //private const string DiscoveryUrl = "opc.tcp://172.16.10.65:4846";
+
+
         static int lineCount = 0;
         static int totalNodes = 0;
         static int netCalls = 0;
         static DateTime startTime;
+        static DateTime lastCheckTime;
 
         static void Main(string[] args)
         {
@@ -60,7 +66,7 @@ namespace KonsoleBrowse
             application.CheckApplicationInstanceCertificate(false, 2048).GetAwaiter().GetResult();
 
             //var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://" + Dns.GetHostName() + ":48010", useSecurity: true, operationTimeout: 15000);
-            var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://172.16.10.62:4846", useSecurity: false, operationTimeout: 15000);
+            var selectedEndpoint = CoreClientUtils.SelectEndpoint(DiscoveryUrl, useSecurity: false, operationTimeout: 15000);
 
             Console.WriteLine($"Step 2 - Create a session with your server: {selectedEndpoint.EndpointUrl} ");
             using (var session = Session.Create(config, new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(config)), false, "", 60000, null, null).GetAwaiter().GetResult())
@@ -75,6 +81,7 @@ namespace KonsoleBrowse
                 TimeSpan ts = end - startTime;
 
                 Console.WriteLine("Total Net Calls: {0}", netCalls);
+                Console.WriteLine("Total Nodes Found: {0}", totalNodes);
                 Console.WriteLine("Total Get Time: Seconds: {1}", ts.TotalMinutes, ts.TotalSeconds);
 
 
@@ -99,6 +106,7 @@ namespace KonsoleBrowse
         }
         private static void BrowseTree(Session session, ReferenceDescription reff, string sPre)
         {
+            NodeId propTypeId = ExpandedNodeId.ToNodeId(68, session.NamespaceUris);
             ReferenceDescriptionCollection nextRefs;
             byte[] nextCp;
             netCalls++;
@@ -107,23 +115,36 @@ namespace KonsoleBrowse
             {
                 foreach (var nextRd in nextRefs)
                 {
-                    //BrowseTree(session, nextRd, sPre += "-");
+                    totalNodes++;
                     if (lineCount % 500 == 0)
                     {
                         DateTime end = DateTime.Now;
+                        
+
                         TimeSpan ts = end - startTime;
+                        TimeSpan lastCallTS = end - lastCheckTime;
 
                         //Console.WriteLine("Total Net Calls: {0}", netCalls);
-                        Console.WriteLine("Total Get Time: Seconds: {1}", ts.TotalMinutes, ts.TotalSeconds);
+                        Console.WriteLine("Total Get Time: Seconds: {1} :  Since Last: {0}", lastCallTS.TotalSeconds, ts.TotalSeconds);
                         Console.WriteLine("Node Sample Count: {4} : {1}", nextRd.DisplayName, nextRd.BrowseName, nextRd.NodeClass, sPre, lineCount);
                         Console.WriteLine("");
+
+                        lastCheckTime = DateTime.Now;
                     }
                     lineCount++;
-
+                     
                     if (nextRd.NodeClass == NodeClass.Variable || nextRd.NodeClass == NodeClass.Object)
-                    {
-                        BrowseTree(session, nextRd, sPre += "-");
+                    {                    
+                        if (nextRd.TypeDefinition != propTypeId)
+                        {
+                            BrowseTree(session, nextRd, sPre += "-");
+                        }
+                        else
+                        {
+                            //Console.WriteLine("<<< SKIPPING Property >>>");
+                        }
                     }
+
                 }
             }
         }
@@ -176,6 +197,7 @@ namespace KonsoleBrowse
             Console.WriteLine("DisplayName: BrowseName, NodeClass");
             foreach (var rd in refs)
             {
+                totalNodes++;
                 Console.WriteLine("Root: {0}: {1}, {2}", rd.DisplayName, rd.BrowseName, rd.NodeClass);
                 BrowseTree(session, rd, "");
             }
