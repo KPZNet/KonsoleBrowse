@@ -18,8 +18,9 @@ namespace KonsoleBrowse
     class Program
     {
         //private const string DiscoveryUrl = "opc.tcp://172.16.10.62:4846";
-        private const string DiscoveryUrl = "opc.tcp://DESKTOP-35D3VE0:48010";
+        //private const string DiscoveryUrl = "opc.tcp://DESKTOP-35D3VE0:48010";
         //private const string DiscoveryUrl = "opc.tcp://172.16.10.65:4846";
+        private const string DiscoveryUrl = "opc.tcp://172.16.10.66:4846";
 
 
         static int lineCount = 0;
@@ -31,11 +32,11 @@ namespace KonsoleBrowse
         static void Main(string[] args)
         {
             
-            Console.WriteLine("Step 1 - Create application configuration and certificate.");
+            Console.WriteLine("Create application configuration and certificate, start connection and extraction...");
             var config = new ApplicationConfiguration()
             {
-                ApplicationName = "MyHomework",
-                ApplicationUri = Utils.Format(@"urn:{0}:MyHomework", System.Net.Dns.GetHostName()),
+                ApplicationName = "UABenchMarks",
+                ApplicationUri = Utils.Format(@"urn:{0}:UABenchMarks", System.Net.Dns.GetHostName()),
                 ApplicationType = ApplicationType.Client,
                 SecurityConfiguration = new SecurityConfiguration
                 {
@@ -59,16 +60,14 @@ namespace KonsoleBrowse
 
             var application = new ApplicationInstance
             {
-                ApplicationName = "MyHomework",
+                ApplicationName = "UABenchMarks",
                 ApplicationType = ApplicationType.Client,
                 ApplicationConfiguration = config
             };
             application.CheckApplicationInstanceCertificate(false, 2048).GetAwaiter().GetResult();
 
-            //var selectedEndpoint = CoreClientUtils.SelectEndpoint("opc.tcp://" + Dns.GetHostName() + ":48010", useSecurity: true, operationTimeout: 15000);
             var selectedEndpoint = CoreClientUtils.SelectEndpoint(DiscoveryUrl, useSecurity: false, operationTimeout: 15000);
 
-            Console.WriteLine($"Step 2 - Create a session with your server: {selectedEndpoint.EndpointUrl} ");
             using (var session = Session.Create(config, new ConfiguredEndpoint(null, selectedEndpoint, EndpointConfiguration.Create(config)), false, "", 60000, null, null).GetAwaiter().GetResult())
             {
                 Console.WriteLine("Trying QueryFirst Call...");
@@ -85,20 +84,20 @@ namespace KonsoleBrowse
                 Console.WriteLine("Total Get Time: Seconds: {1}", ts.TotalMinutes, ts.TotalSeconds);
 
 
-                Console.WriteLine("Step 4 - Create a subscription. Set a faster publishing interval if you wish.");
-                var subscription = new Subscription(session.DefaultSubscription) { PublishingInterval = 30000 };
+                //Console.WriteLine("Step 4 - Create a subscription. Set a faster publishing interval if you wish.");
+                //var subscription = new Subscription(session.DefaultSubscription) { PublishingInterval = 30000 };
 
-                Console.WriteLine("Step 5 - Add a list of items you wish to monitor to the subscription.");
-                var list = new List<MonitoredItem> { new MonitoredItem(subscription.DefaultItem) { DisplayName = "ServerStatusCurrentTime", StartNodeId = "i=2258" } };
-                list.ForEach(i => i.Notification += OnNotification);
-                subscription.AddItems(list);
+                //Console.WriteLine("Step 5 - Add a list of items you wish to monitor to the subscription.");
+                //var list = new List<MonitoredItem> { new MonitoredItem(subscription.DefaultItem) { DisplayName = "ServerStatusCurrentTime", StartNodeId = "i=2258" } };
+                //list.ForEach(i => i.Notification += OnNotification);
+                //subscription.AddItems(list);
 
-                Console.WriteLine("Step 6 - Add the subscription to the session.");
-                session.AddSubscription(subscription);
-                subscription.Create();
+                //Console.WriteLine("Step 6 - Add the subscription to the session.");
+                //session.AddSubscription(subscription);
+                //subscription.Create();
 
-                Console.WriteLine("Press any key to remove subscription...");
-                Console.ReadKey(true);
+                //Console.WriteLine("Press any key to remove subscription...");
+                //Console.ReadKey(true);
             }
 
             Console.WriteLine("Press any key to exit...");
