@@ -29,6 +29,8 @@ namespace KonsoleBrowse
         static DateTime startTime;
         static DateTime lastCheckTime;
 
+        static BrowseResultCollection nodeList = new BrowseResultCollection();
+
         static void Main(string[] args)
         {
             
@@ -103,6 +105,74 @@ namespace KonsoleBrowse
             Console.WriteLine("Press any key to exit...");
             Console.ReadKey(true);
         }
+        private static void BrowseTree2(Session session, BrowseDescriptionCollection bdCollection, string sPre)
+        {
+
+            BrowseResultCollection br = new BrowseResultCollection();
+            DiagnosticInfoCollection dc = new DiagnosticInfoCollection();
+
+            netCalls++;
+            Console.WriteLine($"Getting: {bdCollection.Count}");
+            if (bdCollection.Count != 0)
+            {
+                session.Browse(null, null, (uint)1000000, bdCollection, out br, out dc);
+                if (br != null)
+                {
+                    if (bdCollection.Count != br.Count)
+                    {
+                        Console.WriteLine($"NOT EQUAL:  DC Count = {dc.Count}");
+                    }
+                    int i = 0;
+                    BrowseDescriptionCollection bc = new BrowseDescriptionCollection();
+                    foreach (var b in br)
+                    {
+                        nodeList.Add(b);
+                        var inNode = bdCollection[i];
+                        foreach (var n in b.References)
+                        {
+                            BrowseDescription bd = new BrowseDescription();
+                            bd.NodeId = (NodeId)n.NodeId;
+                            bd.BrowseDirection = BrowseDirection.Forward;
+                            bd.ReferenceTypeId = ReferenceTypeIds.HasChild;
+                            bd.IncludeSubtypes = true;
+                            bd.NodeClassMask = (uint)NodeClass.Variable | (uint)NodeClass.Object | (uint)NodeClass.Method;
+                            bc.Add(bd);
+                        }
+                    }
+                    BrowseTree2(session, bc, "KN");
+
+                }
+            }
+        }
+
+        private static void BrowseRootTree2(Session session)
+        {
+            Console.WriteLine("Browse the server namespace.");
+            ReferenceDescriptionCollection refs;
+            Byte[] cp;
+            netCalls++;
+            session.Browse(null, null, ObjectIds.ObjectsFolder, 0u, BrowseDirection.Forward, ReferenceTypeIds.HierarchicalReferences, true, (uint)NodeClass.Variable | (uint)NodeClass.Object | (uint)NodeClass.Method, out cp, out refs);
+            Console.WriteLine("DisplayName: BrowseName, NodeClass");
+
+            BrowseDescriptionCollection bc = new BrowseDescriptionCollection();
+            foreach (var rd in refs)
+            {
+                totalNodes++;
+                Console.WriteLine("{0}: {1}, {2}", rd.DisplayName, rd.BrowseName, rd.NodeClass);
+
+                BrowseDescription bd = new BrowseDescription();
+                bd.NodeId = (NodeId)rd.NodeId;
+                bd.BrowseDirection = BrowseDirection.Forward;
+                bd.ReferenceTypeId = ReferenceTypeIds.HierarchicalReferences;
+                bd.IncludeSubtypes = true;
+                bd.NodeClassMask = (uint)NodeClass.Variable | (uint)NodeClass.Object | (uint)NodeClass.Method;
+                bc.Add(bd);
+            }
+            BrowseTree2(session, bc, "");
+
+            Console.WriteLine($"Total Nodes: {nodeList.Count}");
+        }
+
         private static void BrowseTree(Session session, ReferenceDescription reff, string sPre)
         {
             NodeId propTypeId = ExpandedNodeId.ToNodeId(68, session.NamespaceUris);
